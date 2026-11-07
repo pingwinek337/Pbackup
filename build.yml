@@ -1,0 +1,48 @@
+name: Build PBackup
+
+on:
+  push:
+    branches: [ main, master ]
+    tags: [ 'v*' ]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Pobierz kod
+        uses: actions/checkout@v4
+
+      - name: Zainstaluj Java 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+
+      - name: Zbuduj plugin (Maven)
+        run: mvn -B -ntp clean package
+
+      - name: Przygotuj folder plugins/ (JAR + folder PBackup z configiem)
+        run: |
+          mkdir -p dist/plugins/PBackup
+          cp target/PBackup-*.jar dist/plugins/
+          cp src/main/resources/config.yml dist/plugins/PBackup/config.yml
+
+      - name: Wyślij gotowy folder plugins/ jako artefakt
+        uses: actions/upload-artifact@v4
+        with:
+          name: PBackup
+          path: dist/
+          if-no-files-found: error
+
+      - name: Utwórz Release z plikiem JAR (tylko dla tagów v*)
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: target/PBackup-*.jar
+          generate_release_notes: true
